@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 20% 98%;
+    --foreground: 220 55% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 55% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 55% 10%;
+    --primary: 220 55% 14%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 92% 50%;
+    --secondary-foreground: 220 55% 10%;
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 20% 46%;
+    --accent: 43 92% 50%;
+    --accent-foreground: 220 55% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 220 55% 14%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    @apply font-serif;
+    line-height: 1.25;
+  }
+
+  h4, h5, h6 {
+    @apply font-sans font-semibold;
+    line-height: 1.35;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply text-sm font-medium text-navy-600 hover:text-navy-900 transition-colors duration-150;
+  }
+
+  .phase-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .topic-card {
+    @apply bg-white border border-border rounded-lg p-4 hover:border-navy-300 hover:shadow-sm transition-all duration-200 cursor-pointer;
+  }
+
+  .topic-card.active {
+    @apply border-navy-700 bg-navy-50 shadow-sm;
+  }
+
+  .topic-card.completed {
+    @apply border-sage-500 bg-sage-50;
+  }
+
+  .education-panel {
+    @apply bg-navy-50 border border-navy-200 rounded-lg p-5;
+  }
+
+  .example-panel {
+    @apply bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-5;
+  }
+
+  .warning-panel {
+    @apply bg-red-50 border border-red-200 rounded-lg p-4;
+  }
+
+  .research-panel {
+    @apply bg-blue-50 border border-blue-200 rounded-lg p-4;
+  }
+
+  .input-label {
+    @apply block text-sm font-medium text-navy-800 mb-1.5;
+  }
+
+  .save-indicator {
+    @apply text-xs text-muted-foreground flex items-center gap-1.5;
+  }
+
+  .progress-ring {
+    transform: rotate(-90deg);
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-all duration-150 cursor-pointer;
+  }
+
+  .sidebar-item.active {
+    @apply bg-navy-800 text-white;
+  }
+
+  .sidebar-item:not(.active) {
+    @apply text-navy-300 hover:bg-navy-700 hover:text-white;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(220 20% 80%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(220 20% 65%); }
+
+/* Smooth page transitions */
+.page-enter {
+  animation: fade-in 0.25s ease-out;
+}
