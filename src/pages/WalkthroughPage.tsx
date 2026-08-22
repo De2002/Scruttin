@@ -14,6 +14,7 @@ import FundingRequestPhase from "@/components/features/phases/FundingRequest";
 import GenericPhaseStub from "@/components/features/phases/GenericPhaseStub";
 import RisksPhase from "@/components/features/phases/Risks";
 import MilestonesPhase from "@/components/features/phases/Milestones";
+import ExecutiveSummaryPhase from "@/components/features/phases/ExecutiveSummary";
 import AIAssistant from "@/components/features/ai/AIAssistant";
 
 
@@ -145,6 +146,17 @@ export default function WalkthroughPage() {
       case "milestones":
         return (
           <MilestonesPhase
+            plan={plan}
+            currentTopic={currentTopic}
+            onUpdatePlan={updatePlan}
+            onUpdateTopicStatus={updateTopicStatus}
+            onNavigate={handleNavigate}
+            onOpenAI={() => setAiOpen(true)}
+          />
+        );
+      case "executive_summary":
+        return (
+          <ExecutiveSummaryPhase
             plan={plan}
             currentTopic={currentTopic}
             onUpdatePlan={updatePlan}

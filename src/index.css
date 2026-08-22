@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes audioBounce {
+  from { transform: scaleY(0.5); }
+  to { transform: scaleY(1.2); }
+}
+
 @layer base {
   :root {
     --background: 40 20% 98%;
@@ -25,6 +30,11 @@
     --ring: 220 55% 14%;
     --radius: 0.5rem;
   }
+}
+
+@keyframes audioBounce {
+  from { transform: scaleY(0.5); }
+  to { transform: scaleY(1.2); }
 }
 
 @layer base {

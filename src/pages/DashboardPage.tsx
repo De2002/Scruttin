@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getPlansForUser, createNewPlan } from "@/lib/storage";
 import { BusinessPlan } from "@/types/businessPlan";
+import { useAudio } from "@/contexts/AudioContext";
 import { toast } from "sonner";
 
 // ── Quotes ────────────────────────────────────────────────────────────────────
@@ -318,6 +319,86 @@ function AnimatedQuote({ quote }: { quote: { text: string; author: string } }) {
   );
 }
 
+// ── Audio toggle pill ─────────────────────────────────────────────────────────
+function AudioTogglePill() {
+  const { audioEnabled, audioSettings, toggleAudio, volume, setVolume, isLoading } = useAudio();
+  const [showVolume, setShowVolume] = useState(false);
+
+  if (isLoading || (!audioSettings?.key && !audioSettings?.url)) return null;
+
+  return (
+    <div className="relative">
+      <div
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer select-none ${
+          audioEnabled
+            ? "bg-amber-400/10 border-amber-400/40 text-amber-600"
+            : "bg-white/50 border-border text-navy-400 hover:border-navy-300"
+        }`}
+        onClick={toggleAudio}
+        onMouseEnter={() => setShowVolume(true)}
+        onMouseLeave={() => setShowVolume(false)}
+        title={audioEnabled ? "Background audio on — click to pause" : "Background audio off — click to play"}
+      >
+        {audioEnabled ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" strokeLinecap="round"/>
+          </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-navy-400">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round"/>
+            <line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round"/>
+          </svg>
+        )}
+        <span className="text-[11px] font-semibold">
+          {audioEnabled ? "Focus Audio" : "Audio Off"}
+        </span>
+        {audioEnabled && (
+          <span className="flex items-end gap-[2px] h-3">
+            {[3, 5, 4, 6, 3].map((h, i) => (
+              <span
+                key={i}
+                className="w-[2px] rounded-full bg-amber-500"
+                style={{
+                  height: `${h}px`,
+                  animation: audioEnabled ? `audioBounce ${0.5 + i * 0.1}s ease-in-out infinite alternate` : "none",
+                }}
+              />
+            ))}
+          </span>
+        )}
+      </div>
+
+      {/* Volume slider on hover */}
+      {showVolume && audioEnabled && (
+        <div
+          className="absolute top-full right-0 mt-2 bg-white border border-border rounded-xl shadow-lg p-3 z-20 min-w-[160px]"
+          onMouseEnter={() => setShowVolume(true)}
+          onMouseLeave={() => setShowVolume(false)}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[10px] font-bold text-navy-400 uppercase tracking-wide mb-2">Volume</p>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            className="w-full accent-amber-500"
+          />
+          <div className="flex justify-between">
+            <span className="text-[10px] text-navy-400">0</span>
+            <span className="text-[10px] text-navy-700 font-semibold">{Math.round(volume * 100)}%</span>
+            <span className="text-[10px] text-navy-400">100</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -381,6 +462,7 @@ export default function DashboardPage() {
             <span className="text-white font-serif font-semibold text-base">Scruttin</span>
           </div>
           <div className="flex items-center gap-4">
+            <AudioTogglePill />
             <span className="text-navy-300 text-sm hidden sm:block">{user?.name}</span>
             <button
               onClick={() => signOut()}

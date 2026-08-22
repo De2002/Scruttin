@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext";
+import { AudioProvider } from "@/contexts/AudioContext";
 
 import LandingPage from "@/pages/LandingPage";
 import AuthPage from "@/pages/AuthPage";
@@ -12,6 +13,7 @@ import ResearchPage from "@/pages/ResearchPage";
 import NotesPage from "@/pages/NotesPage";
 import DocumentPage from "@/pages/DocumentPage";
 import NotFound from "@/pages/NotFound";
+import AdminPage from "@/pages/AdminPage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthContext();
@@ -31,9 +33,17 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthContext();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <AudioProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -44,10 +54,12 @@ export default function App() {
           <Route path="/plan/:planId/research" element={<ProtectedRoute><ResearchPage /></ProtectedRoute>} />
           <Route path="/plan/:planId/notes" element={<ProtectedRoute><NotesPage /></ProtectedRoute>} />
           <Route path="/plan/:planId/document" element={<ProtectedRoute><DocumentPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
       <Toaster richColors position="bottom-right" />
+      </AudioProvider>
     </AuthProvider>
   );
 }

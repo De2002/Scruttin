@@ -505,6 +505,25 @@ export interface BusinessPlan {
   fundingRequest?: FundingRequestData;
   risks?: RiskItem[];
   milestones?: Milestone[];
+  executiveSummary?: {
+    businessOverview?: string;
+    overrideOverview?: boolean;
+    problemStatement?: string;
+    overrideProblem?: boolean;
+    opportunityStatement?: string;
+    solutionSummary?: string;
+    overrideSolution?: boolean;
+    marketOpportunity?: string;
+    overrideMarket?: boolean;
+    competitiveAdvantage?: string;
+    teamSummary?: string;
+    overrideTeam?: boolean;
+    financialHighlights?: string;
+    overrideFinancials?: boolean;
+    fundingHighlight?: string;
+    overrideFunding?: boolean;
+    callToAction?: string;
+  };
   researchItems?: ResearchItem[];
   notes?: Note[];
   aiSuggestionsAccepted?: string[];

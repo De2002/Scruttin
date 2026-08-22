@@ -32,6 +32,7 @@ function rowToPlan(row: Record<string, unknown>): BusinessPlan {
     fundingRequest: (row.funding_request as BusinessPlan["fundingRequest"]) || {},
     risks: (row.risks as BusinessPlan["risks"]) || [],
     milestones: (row.milestones as BusinessPlan["milestones"]) || [],
+    executiveSummary: (row.executive_summary as BusinessPlan["executiveSummary"]) || {},
     researchItems: [],
     notes: [],
     aiSuggestionsAccepted: (row.ai_suggestions_accepted as string[]) || [],
@@ -133,6 +134,7 @@ export async function savePlan(plan: BusinessPlan): Promise<void> {
     funding_request: (plan as any).fundingRequest || {},
     risks: plan.risks || [],
     milestones: plan.milestones || [],
+    executive_summary: (plan as any).executiveSummary || {},
     ai_suggestions_accepted: plan.aiSuggestionsAccepted || [],
   };
 
