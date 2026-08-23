@@ -55,8 +55,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playAudio = useCallback(async () => {
     const { data, error } = await supabase.functions.invoke("r2-audio");
-    if (error || !data?.url) {
-      throw error ?? new Error("B2 download authorization did not return an audio URL");
+    if (error) {
+      let detail = error.message;
+      try {
+        const body = await error.context?.json();
+        detail = body?.error || body?.message || detail;
+      } catch {
+        // Keep the function error message when the response is not JSON.
+      }
+      throw new Error(detail);
+    }
+    if (!data?.url) {
+      throw new Error("B2 download authorization did not return an audio URL");
     }
     const audio = getAudio();
     audio.src = data.url;
