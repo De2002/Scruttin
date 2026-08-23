@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { BusinessPlan } from "@/types/businessPlan";
-import { PHASES, PHASE_BY_ID } from "@/constants/phases";
+import { PHASES } from "@/constants/phases";
 import { SaveStatus } from "@/hooks/useBusinessPlan";
+import { useAudio } from "@/contexts/AudioContext";
 
 interface SidebarProps {
   plan: BusinessPlan;
@@ -39,6 +40,8 @@ export default function WalkthroughSidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const [expandedPhase, setExpandedPhase] = useState<string>(currentPhase);
+  const { audioEnabled, toggleAudio, volume, setVolume } = useAudio();
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   const getTopicStatus = (topicId: string) => plan.topicStatus?.[topicId] || "not_started";
 
@@ -146,6 +149,68 @@ export default function WalkthroughSidebar({
         })}
       </nav>
 
+      {/* Focus audio toggle */}
+      <div className="border-t border-navy-700 px-3 py-3 shrink-0">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleAudio}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 border ${
+              audioEnabled
+                ? "bg-amber-400/20 text-amber-300 border-amber-400/30"
+                : "bg-navy-800 text-navy-400 border-navy-700 hover:text-white"
+            }`}
+          >
+            {audioEnabled ? (
+              <>
+                <span className="flex gap-0.5 items-end h-4">
+                  {[3, 5, 4, 6, 3].map((h, i) => (
+                    <span
+                      key={i}
+                      className="w-0.5 bg-amber-400 rounded-sm animate-pulse"
+                      style={{ height: `${h}px`, animationDelay: `${i * 100}ms` }}
+                    />
+                  ))}
+                </span>
+                <span>Focus On</span>
+              </>
+            ) : (
+              <>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <line x1="23" y1="9" x2="17" y2="15"/>
+                  <line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+                <span>Focus Off</span>
+              </>
+            )}
+          </button>
+          {audioEnabled && (
+            <button
+              onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+              className="text-navy-400 hover:text-white p-1.5 rounded transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+              </svg>
+            </button>
+          )}
+        </div>
+        {audioEnabled && showVolumeSlider && (
+          <div className="mt-2 flex items-center gap-2">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-navy-500 shrink-0">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            </svg>
+            <input
+              type="range" min="0" max="1" step="0.05" value={volume}
+              onChange={(e) => setVolume(parseFloat(e.target.value))}
+              className="flex-1 h-1 accent-amber-400 cursor-pointer"
+            />
+            <span className="text-navy-500 text-xs w-7 text-right shrink-0">{Math.round(volume * 100)}%</span>
+          </div>
+        )}
+      </div>
+
       {/* Quick links */}
       <div className="border-t border-navy-700 p-3 space-y-1 shrink-0">
         <button
@@ -188,12 +253,12 @@ export default function WalkthroughSidebar({
 
       {/* Save status */}
       <div className="px-4 py-2 border-t border-navy-800 shrink-0">
-        <div className="save-indicator justify-center">
+        <div className="flex items-center justify-center gap-2 text-navy-500 text-xs">
           {saveStatus === "saved" && (
             <><span className="w-1.5 h-1.5 bg-sage-500 rounded-full" /><span>Saved</span></>
           )}
           {saveStatus === "saving" && (
-            <><span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse-soft" /><span>Saving...</span></>
+            <><span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" /><span>Saving...</span></>
           )}
           {saveStatus === "unsaved" && (
             <><span className="w-1.5 h-1.5 bg-navy-500 rounded-full" /><span>Unsaved changes</span></>

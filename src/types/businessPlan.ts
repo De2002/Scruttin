@@ -524,7 +524,25 @@ export interface BusinessPlan {
     overrideFunding?: boolean;
     callToAction?: string;
   };
+  appendix?: AppendixData;
   researchItems?: ResearchItem[];
   notes?: Note[];
   aiSuggestionsAccepted?: string[];
+}
+
+export interface AppendixItem {
+  id: string;
+  category: string;
+  label: string;
+  checked: boolean;
+  notes: string;
+  required: boolean;
+}
+
+export interface AppendixData {
+  items?: AppendixItem[];
+  customItems?: AppendixItem[];
+  additionalNotes?: string;
+  gatheringDeadline?: string;
+  submissionNotes?: string;
 }

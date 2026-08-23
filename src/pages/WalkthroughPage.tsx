@@ -16,7 +16,9 @@ import RisksPhase from "@/components/features/phases/Risks";
 import MilestonesPhase from "@/components/features/phases/Milestones";
 import ExecutiveSummaryPhase from "@/components/features/phases/ExecutiveSummary";
 import AIAssistant from "@/components/features/ai/AIAssistant";
-
+import AppendixPhase from "@/components/features/phases/Appendix";
+import GuideAudioPlayer from "@/components/features/GuideAudioPlayer";
+import { useAudio } from "@/contexts/AudioContext";
 
 export default function WalkthroughPage() {
   const { planId } = useParams<{ planId: string }>();
@@ -26,6 +28,8 @@ export default function WalkthroughPage() {
 
   const { plan, saveStatus, updatePlan, updateTopicStatus, navigateTo } =
     useBusinessPlan(planId || "");
+
+  const { audioEnabled, toggleAudio, volume, setVolume } = useAudio();
 
   if (!plan) {
     return (
@@ -165,6 +169,17 @@ export default function WalkthroughPage() {
             onOpenAI={() => setAiOpen(true)}
           />
         );
+      case "appendix":
+        return (
+          <AppendixPhase
+            plan={plan}
+            currentTopic={currentTopic}
+            onUpdatePlan={updatePlan}
+            onUpdateTopicStatus={updateTopicStatus}
+            onNavigate={handleNavigate}
+            onOpenAI={() => setAiOpen(true)}
+          />
+        );
       default:
         return (
           <GenericPhaseStub
@@ -228,6 +243,10 @@ export default function WalkthroughPage() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 lg:py-10">
+            {/* Guide audio player — shows when audio is available for this phase/topic */}
+            <div className="mb-6">
+              <GuideAudioPlayer phase={currentPhase} topic={currentTopic} />
+            </div>
             {renderPhaseContent()}
           </div>
         </div>
