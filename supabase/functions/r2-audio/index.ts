@@ -1,11 +1,40 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const R2_BUCKET = Deno.env.get("R2_BUCKET_NAME") || "scruttin-audio";
-const R2_ENDPOINT = Deno.env.get("R2_ENDPOINT") || "";
-const R2_ACCESS_KEY = Deno.env.get("R2_ACCESS_KEY_ID") || "";
-const R2_SECRET_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY") || "";
-const R2_REGION = "auto";
+const B2_BUCKET_ID = Deno.env.get("B2_BUCKET_ID") || "";
+const B2_KEY_ID = Deno.env.get("B2_KEY_ID") || "";
+const B2_APPLICATION_KEY = Deno.env.get("B2_APPLICATION_KEY") || "";
+const B2_FILE_NAME = Deno.env.get("B2_AUDIO_FILE_NAME") ||
+  "Deep Focus Study - 40Hz Gamma Binaural Beats to Increase Focus _ Productivity(MP3_160K).mp3";
+
+async function authorizeB2(): Promise<{ downloadUrl: string; authorizationToken: string }> {
+  if (!B2_BUCKET_ID || !B2_KEY_ID || !B2_APPLICATION_KEY) {
+    throw new Error("B2_BUCKET_ID, B2_KEY_ID, and B2_APPLICATION_KEY are required");
+  }
+
+  const credentials = btoa(`${B2_KEY_ID}:${B2_APPLICATION_KEY}`);
+  const authResponse = await fetch("https://api.backblazeb2.com/b2api/v3/b2_authorize_account", {
+    headers: { Authorization: `Basic ${credentials}` },
+  });
+  if (!authResponse.ok) throw new Error(`B2 authorization failed (${authResponse.status})`);
+  const auth = await authResponse.json();
+
+  const downloadResponse = await fetch(`${auth.apiUrl}/b2api/v3/b2_get_download_authorization`, {
+    method: "POST",
+    headers: { Authorization: auth.authorizationToken, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      bucketId: B2_BUCKET_ID,
+      fileNamePrefix: B2_FILE_NAME,
+      validDurationInSeconds: 3600,
+    }),
+  });
+  if (!downloadResponse.ok) {
+    const detail = await downloadResponse.text();
+    throw new Error(`B2 download authorization failed (${downloadResponse.status}): ${detail}`);
+  }
+  const download = await downloadResponse.json();
+  return { downloadUrl: auth.downloadUrl, authorizationToken: download.authorizationToken };
+}
 
 async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
@@ -88,50 +117,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const key = url.searchParams.get("key");
+    const { downloadUrl, authorizationToken } = await authorizeB2();
+    const audioUrl = `${downloadUrl}/file/${encodeURIComponent(B2_BUCKET_ID)}/${encodeURIComponent(B2_FILE_NAME)}?Authorization=${encodeURIComponent(authorizationToken)}`;
 
-    if (!key) {
-      return new Response("Missing key parameter", {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
-
-    // Generate a pre-signed URL for the R2 object
-    const signedUrl = await getSignedR2Url(key);
-
-    // Proxy the request to R2, streaming audio back
-    const r2Response = await fetch(signedUrl, {
-      headers: {
-        Range: req.headers.get("Range") || "",
-      },
-    });
-
-    if (!r2Response.ok && r2Response.status !== 206) {
-      console.error("R2 fetch error:", r2Response.status);
-      return new Response("Audio file not found", {
-        status: r2Response.status,
-        headers: corsHeaders,
-      });
-    }
-
-    // Stream back with audio-appropriate headers
-    const responseHeaders = new Headers(corsHeaders);
-    const contentType = r2Response.headers.get("Content-Type") || "audio/mpeg";
-    responseHeaders.set("Content-Type", contentType);
-    responseHeaders.set("Accept-Ranges", "bytes");
-    responseHeaders.set("Cache-Control", "public, max-age=3600");
-
-    const contentRange = r2Response.headers.get("Content-Range");
-    if (contentRange) responseHeaders.set("Content-Range", contentRange);
-
-    const contentLength = r2Response.headers.get("Content-Length");
-    if (contentLength) responseHeaders.set("Content-Length", contentLength);
-
-    return new Response(r2Response.body, {
-      status: r2Response.status,
-      headers: responseHeaders,
+    return new Response(JSON.stringify({ url: audioUrl, expiresIn: 3600 }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   } catch (err) {
     console.error("r2-audio error:", err);

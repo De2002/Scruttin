@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 
 // Hardcoded background audio URL from Backblaze B2
 const BACKGROUND_AUDIO_URL =
@@ -44,7 +45,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const getAudio = useCallback(() => {
     if (!audioRef.current) {
-      const audio = new Audio(BACKGROUND_AUDIO_URL);
+      const audio = new Audio();
       audio.loop = true;
       audio.preload = "auto";
       audioRef.current = audio;
@@ -52,8 +53,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return audioRef.current;
   }, []);
 
-  const playAudio = useCallback(() => {
+  const playAudio = useCallback(async () => {
+    const { data, error } = await supabase.functions.invoke("r2-audio");
+    if (error || !data?.url) {
+      throw error ?? new Error("B2 download authorization did not return an audio URL");
+    }
     const audio = getAudio();
+    audio.src = data.url;
     audio.volume = volume;
     return audio.play();
   }, [getAudio, volume]);
