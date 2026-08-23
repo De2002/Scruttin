@@ -36,81 +36,6 @@ async function authorizeB2(): Promise<{ downloadUrl: string; authorizationToken:
   return { downloadUrl: auth.downloadUrl, authorizationToken: download.authorizationToken };
 }
 
-async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-  );
-  return crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
-}
-
-async function getSigningKey(
-  secretKey: string,
-  date: string,
-  region: string,
-  service: string
-): Promise<ArrayBuffer> {
-  const kDate = await hmac(new TextEncoder().encode(`AWS4${secretKey}`), date);
-  const kRegion = await hmac(kDate, region);
-  const kService = await hmac(kRegion, service);
-  return hmac(kService, "aws4_request");
-}
-
-function toHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function sha256(data: ArrayBuffer | Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return toHex(hash);
-}
-
-async function getSignedR2Url(key: string): Promise<string> {
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "").slice(0, 15) + "Z";
-  const dateStamp = amzDate.slice(0, 8);
-
-  const url = new URL(`${R2_ENDPOINT}/${R2_BUCKET}/${key}`);
-  const host = url.hostname;
-  const credentialScope = `${dateStamp}/${R2_REGION}/s3/aws4_request`;
-  const expiresSeconds = 3600; // 1 hour
-
-  const queryParams = new URLSearchParams({
-    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
-    "X-Amz-Credential": `${R2_ACCESS_KEY}/${credentialScope}`,
-    "X-Amz-Date": amzDate,
-    "X-Amz-Expires": String(expiresSeconds),
-    "X-Amz-SignedHeaders": "host",
-  });
-
-  const canonicalQueryString = queryParams.toString()
-    .split("&")
-    .sort()
-    .join("&");
-
-  const canonicalRequest = [
-    "GET",
-    `/${R2_BUCKET}/${key}`,
-    canonicalQueryString,
-    `host:${host}\n`,
-    "host",
-    "UNSIGNED-PAYLOAD",
-  ].join("\n");
-
-  const stringToSign = [
-    "AWS4-HMAC-SHA256",
-    amzDate,
-    credentialScope,
-    await sha256(new TextEncoder().encode(canonicalRequest)),
-  ].join("\n");
-
-  const signingKey = await getSigningKey(R2_SECRET_KEY, dateStamp, R2_REGION, "s3");
-  const signature = toHex(await hmac(signingKey, stringToSign));
-
-  return `${R2_ENDPOINT}/${R2_BUCKET}/${encodeURIComponent(key)}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -125,9 +50,10 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err) {
     console.error("r2-audio error:", err);
-    return new Response(String(err), {
+    const message = err instanceof Error ? err.message : "Unable to authorize audio download";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: corsHeaders,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
