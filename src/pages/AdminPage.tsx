@@ -4,6 +4,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { PHASES } from "@/constants/phases";
+import { downloadSampleDocx, downloadSamplePdf, sampleBusinessPlan } from "@/lib/sampleBusinessPlan";
 
 const ADMIN_EMAIL = "mderrickm00@gmail.com";
 
@@ -195,6 +196,26 @@ export default function AdminPage() {
             <p className="text-white/40 text-xs mt-0.5">The site-wide background audio (40Hz Gamma Binaural Beats) is hardcoded and plays automatically. Users can toggle it from the dashboard.</p>
           </div>
         </div>
+
+        {/* Sample export */}
+        <section className="bg-amber-400/10 border border-amber-400/30 rounded-2xl p-7" aria-labelledby="sample-export-title">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-amber-300 text-xs font-bold uppercase tracking-widest mb-2">Preview deliverable</p>
+              <h2 id="sample-export-title" className="text-white font-serif text-xl font-semibold">Sample business plan export</h2>
+              <p className="text-white/50 text-sm mt-2 max-w-xl">Generate the complete end-business plan with mocked data to review exactly what customers receive.</p>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              <button onClick={() => downloadSamplePdf().catch(() => toast.error("Could not generate PDF."))} className="bg-amber-400 text-slate-950 font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-amber-300 transition-colors">Download PDF</button>
+              <button onClick={() => downloadSampleDocx().catch(() => toast.error("Could not generate DOCX."))} className="bg-white/10 border border-white/20 text-white font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-white/15 transition-colors">Download DOCX</button>
+            </div>
+          </div>
+          <div className="mt-6 bg-[#0A0F1C]/70 border border-white/10 rounded-xl p-5">
+            <div className="flex items-start justify-between gap-4 mb-4"><div><p className="text-white font-semibold">{sampleBusinessPlan.businessName}</p><p className="text-amber-300 text-sm mt-1">{sampleBusinessPlan.tagline}</p></div><span className="text-white/30 text-xs">{sampleBusinessPlan.sections.length + 1} sections</span></div>
+            <p className="text-white/60 text-sm leading-6">{sampleBusinessPlan.executiveSummary}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5">{sampleBusinessPlan.sections.slice(0, 4).map((section) => <div key={section.title} className="bg-white/5 rounded-lg px-3 py-2"><p className="text-white/40 text-[10px] uppercase tracking-wide">Section</p><p className="text-white/80 text-xs mt-1">{section.title}</p></div>)}</div>
+          </div>
+        </section>
 
         {/* Guide Audio Upload */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-7">
