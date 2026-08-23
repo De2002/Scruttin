@@ -6,7 +6,6 @@ import { useAudio } from "@/contexts/AudioContext";
 import { toast } from "sonner";
 
 const ADMIN_EMAIL = "mderrickm00@gmail.com";
-const MAX_AUDIO_FILE_SIZE = 200 * 1024 * 1024;
 
 export default function AdminPage() {
   const { user } = useAuthContext();
@@ -41,8 +40,8 @@ export default function AdminPage() {
       toast.error("Please select an audio file (MP3, WAV, OGG, FLAC, M4A).");
       return;
     }
-    if (file.size > MAX_AUDIO_FILE_SIZE) {
-      toast.error("File size must be under 200MB.");
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File size must be under 50MB.");
       return;
     }
     setSelectedFile(file);
@@ -271,7 +270,7 @@ export default function AdminPage() {
                 <p className="text-white/70 text-sm font-medium mb-1">
                   Drop an audio file here, or click to browse
                 </p>
-                <p className="text-white/30 text-xs">MP3, WAV, OGG, FLAC, M4A · Max 200MB</p>
+                <p className="text-white/30 text-xs">MP3, WAV, OGG, FLAC, M4A · Max 50MB</p>
               </div>
             )}
           </div>
