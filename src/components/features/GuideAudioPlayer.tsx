@@ -25,6 +25,8 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [buffering, setBuffering] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -34,6 +36,8 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
     setPlaying(false);
     setCurrentTime(0);
     setExpanded(false);
+    setError(null);
+    setBuffering(false);
 
     // Try to find audio for this specific phase + topic first, then phase-only
     const fetchAudio = async () => {
@@ -104,6 +108,22 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
     return audioRef.current;
   };
 
+  const startPlayback = (audio: HTMLAudioElement) => {
+    setBuffering(true);
+    setError(null);
+    audio.play().then(() => {
+      setBuffering(false);
+      setPlaying(true);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => setCurrentTime(audio.currentTime), 250);
+    }).catch((reason) => {
+      setBuffering(false);
+      setPlaying(false);
+      setError("Audio could not load. Check the B2 file authorization.");
+      console.log("[v0] Guide audio playback failed:", reason);
+    });
+  };
+
   const togglePlay = () => {
     const audio = initAudio();
     if (playing) {
@@ -111,12 +131,7 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
       if (intervalRef.current) clearInterval(intervalRef.current);
       setPlaying(false);
     } else {
-      audio.play().then(() => {
-        setPlaying(true);
-        intervalRef.current = setInterval(() => {
-          setCurrentTime(audio.currentTime);
-        }, 500);
-      }).catch(console.error);
+      startPlayback(audio);
     }
   };
 
@@ -144,10 +159,7 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
             setExpanded(true);
             // Start playing when first opened
             const audio = initAudio();
-            audio.play().then(() => {
-              setPlaying(true);
-              intervalRef.current = setInterval(() => setCurrentTime(audio.currentTime), 500);
-            }).catch(console.error);
+            startPlayback(audio);
           }}
           className="flex items-center gap-2 bg-amber-400/15 border border-amber-400/30 text-amber-700 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-amber-400/25 transition-all group"
         >
@@ -194,13 +206,23 @@ export default function GuideAudioPlayer({ phase, topic }: GuideAudioPlayerProps
             </button>
           </div>
 
+          {error && (
+            <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          )}
+
           {/* Controls */}
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               onClick={togglePlay}
-              className="w-9 h-9 bg-amber-400 rounded-full flex items-center justify-center hover:bg-amber-300 transition-colors shrink-0"
+              aria-label={buffering ? "Loading audio" : playing ? "Pause guide audio" : "Play guide audio"}
+              disabled={buffering}
+              className="w-10 h-10 bg-amber-400 rounded-full flex items-center justify-center hover:bg-amber-300 disabled:opacity-60 transition-colors shrink-0"
             >
-              {playing ? (
+              {buffering ? (
+                <span className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />
+              ) : playing ? (
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <rect x="2" y="1" width="4" height="12" rx="1" fill="white"/>
                   <rect x="8" y="1" width="4" height="12" rx="1" fill="white"/>
