@@ -34,6 +34,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
   });
+  const [lastError, setLastError] = useState<string | null>(null);
   const [volume, setVolumeState] = useState<number>(() => {
     try {
       return parseFloat(localStorage.getItem("scruttin_audio_volume") || "0.4");
@@ -54,6 +55,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const playAudio = useCallback(async () => {
+    setLastError(null);
     const { data, error } = await supabase.functions.invoke("r2-audio");
     if (error) {
       let detail = error.message;
@@ -63,10 +65,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Keep the function error message when the response is not JSON.
       }
+      setLastError(detail);
       throw new Error(detail);
     }
     if (!data?.url) {
-      throw new Error("B2 download authorization did not return an audio URL");
+      const detail = "B2 did not return an authorized audio URL. Verify the bucket name, file name, and shareFiles capability.";
+      setLastError(detail);
+      throw new Error(detail);
     }
     const audio = getAudio();
     audio.src = data.url;

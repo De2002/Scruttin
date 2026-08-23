@@ -2,6 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const B2_BUCKET_ID = Deno.env.get("B2_BUCKET_ID") || "";
+const B2_BUCKET_NAME = Deno.env.get("B2_BUCKET_NAME") || "Scruttin";
+const B2_DOWNLOAD_URL = Deno.env.get("B2_DOWNLOAD_URL") || "";
 const B2_KEY_ID = Deno.env.get("B2_KEY_ID") || "";
 const B2_APPLICATION_KEY = Deno.env.get("B2_APPLICATION_KEY") || "";
 const B2_FILE_NAME = Deno.env.get("B2_AUDIO_FILE_NAME") ||
@@ -24,6 +26,7 @@ async function authorizeB2(): Promise<{ downloadUrl: string; authorizationToken:
     headers: { Authorization: auth.authorizationToken, "Content-Type": "application/json" },
     body: JSON.stringify({
       bucketId: B2_BUCKET_ID,
+      bucketId: B2_BUCKET_ID,
       fileNamePrefix: B2_FILE_NAME,
       validDurationInSeconds: 3600,
     }),
@@ -43,7 +46,8 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { downloadUrl, authorizationToken } = await authorizeB2();
-    const audioUrl = `${downloadUrl}/file/${encodeURIComponent(B2_BUCKET_ID)}/${encodeURIComponent(B2_FILE_NAME)}?Authorization=${encodeURIComponent(authorizationToken)}`;
+    const baseDownloadUrl = B2_DOWNLOAD_URL || downloadUrl;
+    const audioUrl = `${baseDownloadUrl}/file/${encodeURIComponent(B2_BUCKET_NAME)}/${encodeURIComponent(B2_FILE_NAME)}?Authorization=${encodeURIComponent(authorizationToken)}`;
 
     return new Response(JSON.stringify({ url: audioUrl, expiresIn: 3600 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
