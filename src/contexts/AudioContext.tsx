@@ -42,19 +42,30 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize audio element once
-  useEffect(() => {
+  const getAudio = useCallback(() => {
     if (!audioRef.current) {
       const audio = new Audio(BACKGROUND_AUDIO_URL);
       audio.loop = true;
-      audio.volume = volume;
-      audio.preload = "none";
+      audio.preload = "auto";
       audioRef.current = audio;
     }
+    return audioRef.current;
+  }, []);
+
+  const playAudio = useCallback(() => {
+    const audio = getAudio();
+    audio.volume = volume;
+    return audio.play();
+  }, [getAudio, volume]);
+
+  // Create the element once and clean it up when the provider unmounts.
+  useEffect(() => {
+    getAudio();
     return () => {
       audioRef.current?.pause();
+      audioRef.current = null;
     };
-  }, []);
+  }, [getAudio]);
 
   // Handle volume changes
   useEffect(() => {
@@ -66,28 +77,33 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [volume]);
 
-  // Handle play/pause
+  // Keep state and the media element in sync. Playback is also attempted directly
+  // from toggleAudio so browsers recognize the user's click as an allowed gesture.
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audioEnabled) {
-      audio.play().catch((e) => console.log("Audio play blocked:", e));
-    } else {
-      audio.pause();
-    }
-  }, [audioEnabled]);
+    if (!audioEnabled) getAudio().pause();
+  }, [audioEnabled, getAudio]);
 
-  const toggleAudio = () => {
-    setAudioEnabled((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("scruttin_audio_enabled", String(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
-  };
+  const toggleAudio = useCallback(() => {
+    const next = !audioEnabled;
+    setAudioEnabled(next);
+    try {
+      localStorage.setItem("scruttin_audio_enabled", String(next));
+    } catch {
+      // ignore
+    }
+
+    if (next) {
+      playAudio().catch((error) => {
+        console.log("[v0] Background audio could not start:", error);
+        setAudioEnabled(false);
+        try {
+          localStorage.setItem("scruttin_audio_enabled", "false");
+        } catch {
+          // ignore
+        }
+      });
+    }
+  }, [audioEnabled, playAudio]);
 
   const setVolume = (v: number) => {
     setVolumeState(v);
