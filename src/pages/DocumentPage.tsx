@@ -21,9 +21,21 @@ export default function DocumentPage() {
 
   const cd = plan.companyDescription || {};
   const ma = plan.marketAnalysis || {};
+  const es = plan.executiveSummary || {};
+
+  const executiveSummaryContent = (es.businessOverview || es.problemStatement || es.opportunityStatement || es.marketOpportunity || es.solutionSummary || es.financialHighlights) ? (
+    <div className="space-y-4 text-sm leading-relaxed text-navy-800">
+      {es.businessOverview && <div><p className="font-semibold mb-1">Business Overview</p><p>{es.businessOverview}</p></div>}
+      {es.problemStatement && <div><p className="font-semibold mb-1">Problem</p><p>{es.problemStatement}</p></div>}
+      {es.opportunityStatement && <div><p className="font-semibold mb-1">Opportunity</p><p className="whitespace-pre-wrap">{es.opportunityStatement}</p></div>}
+      {es.solutionSummary && <div><p className="font-semibold mb-1">Solution</p><p>{es.solutionSummary}</p></div>}
+      {es.marketOpportunity && <div><p className="font-semibold mb-1">Market Opportunity</p><p>{es.marketOpportunity}</p></div>}
+      {es.financialHighlights && <div><p className="font-semibold mb-1">Financial Highlights</p><p>{es.financialHighlights}</p></div>}
+    </div>
+  ) : null;
 
   const sections = [
-    { num: "1", title: "Executive Summary", content: null, placeholder: "Complete the Executive Summary phase to generate this section." },
+    { num: "1", title: "Executive Summary", content: executiveSummaryContent, placeholder: "Complete the Executive Summary phase to generate this section." },
     {
       num: "2", title: "Company Description", content: cd.businessName ? (
         <div className="space-y-4 text-sm leading-relaxed text-navy-800">
