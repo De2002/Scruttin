@@ -938,9 +938,12 @@ function ESReview({ es, update, status, markComplete, onNext, onPrev, onNavigate
   ];
 
   const completedFields = esFields.filter((f) => {
-    const override = (es as any)[`override${f.key.charAt(0).toUpperCase() + f.key.slice(1)}`];
-    const autoVal = getAutoValue(f.key, plan);
-    return override ? (es as any)[f.key]?.trim()?.length > 10 : autoVal.trim().length > 10;
+  // Opportunity Statement is always manual, so check its saved value directly.
+  if (f.source === "Manual") return Boolean((es as any)[f.key]?.trim()?.length > 10);
+
+  const override = (es as any)[`override${f.key.charAt(0).toUpperCase() + f.key.slice(1)}`];
+  const autoVal = getAutoValue(f.key, plan);
+  return override ? (es as any)[f.key]?.trim()?.length > 10 : autoVal.trim().length > 10;
   });
 
   const pct = Math.round((completedFields.length / esFields.length) * 100);
