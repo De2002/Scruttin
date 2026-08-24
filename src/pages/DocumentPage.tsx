@@ -98,25 +98,69 @@ export default function DocumentPage() {
   const exportSections = sections.filter((section) => section.content);
   const fileBase = plan.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "business-plan";
 
+  const labelize = (key: string) => key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const flattenPlan = (value: unknown, path: string[] = []): Array<{ label: string; value: string }> => {
+    if (value === null || value === undefined || value === "") return [];
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return [{ label: path.map(labelize).join(" · "), value: String(value) }];
+    if (Array.isArray(value)) return value.flatMap((item, index) => flattenPlan(item, [...path, String(index + 1)]));
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => flattenPlan(item, [...path, key]));
+  };
+  const allPlanData = flattenPlan(plan).filter((item) => !item.label.endsWith(" · Id") && !item.label.endsWith(" · Updated At") && !item.label.endsWith(" · Created At"));
+
   const exportAsPdf = async () => {
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ unit: "pt", format: "letter" });
+    const margin = 54;
     let y = 60;
     const addText = (text: string, size = 10, bold = false) => {
-      pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(size);
-      const lines = pdf.splitTextToSize(text, 504); const height = lines.length * (size + 5);
+      pdf.setFont("helvetica", bold ? "bold" : "normal");
+      pdf.setFontSize(size);
+      const lines = pdf.splitTextToSize(text, 504);
+      const height = lines.length * (size + 5);
       if (y + height > 730) { pdf.addPage(); y = 58; }
-      pdf.text(lines, 54, y); y += height + 10;
+      pdf.text(lines, margin, y);
+      y += height + 8;
     };
-    pdf.setTextColor(15, 30, 60); addText(plan.name, 24, true); addText("Business Plan", 12);
-    exportSections.forEach((section) => { addText(`${section.num}. ${section.title}`, 16, true); addText(section.title === "Executive Summary" ? [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n") : section.placeholder, 10); });
+
+    // Match the original generated-plan format: branded cover, then content pages.
+    pdf.setFillColor(15, 30, 60);
+    pdf.rect(0, 0, 612, 792, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(30);
+    pdf.text(plan.name, margin, 240);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(15);
+    if (cd.tagline) pdf.text(cd.tagline, margin, 270);
+    pdf.setFontSize(10);
+    pdf.text("BUSINESS PLAN", margin, 650);
+    pdf.text(`Prepared · ${new Date(plan.updatedAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`, margin, 670);
+
+    pdf.addPage();
+    y = 60;
+    pdf.setTextColor(15, 30, 60);
+    addText("Executive Summary", 20, true);
+    const executiveText = [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n");
+    if (executiveText) addText(executiveText, 11);
+    addText("Complete Plan Data", 16, true);
+    allPlanData.forEach(({ label, value }) => addText(`${label}: ${value}`, 9));
+
+    const pages = pdf.getNumberOfPages();
+    for (let page = 2; page <= pages; page++) {
+      pdf.setPage(page);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`${plan.name} · Business plan · ${page}`, margin, 760);
+    }
     pdf.save(`${fileBase}.pdf`);
   };
 
   const exportAsDocx = async () => {
     const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
     const children = [new Paragraph({ text: plan.name, heading: HeadingLevel.TITLE }), new Paragraph("Business Plan")];
-    exportSections.forEach((section) => { children.push(new Paragraph({ text: `${section.num}. ${section.title}`, heading: HeadingLevel.HEADING_1 }), new Paragraph(section.title === "Executive Summary" ? [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n") : section.placeholder)); });
+    children.push(new Paragraph({ text: "Executive Summary", heading: HeadingLevel.HEADING_1 }));
+    children.push(...allPlanData.map(({ label, value }) => new Paragraph({ text: `${label}: ${value}` })));
     downloadBlob(await Packer.toBlob(new Document({ sections: [{ children }] })), `${fileBase}.docx`);
   };
 
