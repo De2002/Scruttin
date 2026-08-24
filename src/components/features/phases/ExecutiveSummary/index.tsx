@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { BusinessPlan } from "@/types/businessPlan";
 import {
   TopicHeader,
@@ -131,7 +131,7 @@ export default function ExecutiveSummaryPhase({
   const handlePrev = () =>
     nav.prev ? onNavigate("executive_summary", nav.prev.id) : onNavigate("milestones", "ms_review");
 
-  const sharedProps = { es, update, status, markComplete, onNext: handleNext, onPrev: handlePrev, onNavigate, plan };
+  const sharedProps = { es, update, status, markComplete, onNext: handleNext, onPrev: handlePrev, onNavigate, onUpdateTopicStatus, plan };
 
   const renderTopic = () => {
     switch (currentTopic) {
@@ -519,8 +519,19 @@ function ESOverview({ es, update, status, markComplete, onNext, onPrev, plan }: 
 }
 
 // ─── 03 — Problem & Opportunity ───────────────────────────────────────────────
-function ESOpportunity({ es, update, status, markComplete, onNext, onPrev, plan }: any) {
+function ESOpportunity({ es, update, status, markComplete, onNext, onPrev, plan, onUpdateTopicStatus }: any) {
   const cd = plan.companyDescription || {};
+
+  // Keep the topic status derived from the saved manual answer. This repairs
+  // older plans that were marked complete before the required field was filled.
+  useEffect(() => {
+    const hasOpportunity = Boolean(es.opportunityStatement?.trim());
+    if (hasOpportunity && status !== "completed") {
+      onUpdateTopicStatus("es_opportunity", "completed");
+    } else if (!hasOpportunity && status === "completed") {
+      onUpdateTopicStatus("es_opportunity", "in_progress");
+    }
+  }, [es.opportunityStatement, status, onUpdateTopicStatus]);
   const ps = (plan as any).productsServices || {};
   const offerings = ps.offerings || [];
 
