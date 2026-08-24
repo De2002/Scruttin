@@ -101,15 +101,51 @@ export default function DocumentPage() {
   const exportAsPdf = async () => {
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({ unit: "pt", format: "letter" });
+    const margin = 54;
     let y = 60;
     const addText = (text: string, size = 10, bold = false) => {
-      pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(size);
-      const lines = pdf.splitTextToSize(text, 504); const height = lines.length * (size + 5);
+      pdf.setFont("helvetica", bold ? "bold" : "normal");
+      pdf.setFontSize(size);
+      const lines = pdf.splitTextToSize(text, 504);
+      const height = lines.length * (size + 5);
       if (y + height > 730) { pdf.addPage(); y = 58; }
-      pdf.text(lines, 54, y); y += height + 10;
+      pdf.text(lines, margin, y);
+      y += height + 8;
     };
-    pdf.setTextColor(15, 30, 60); addText(plan.name, 24, true); addText("Business Plan", 12);
-    exportSections.forEach((section) => { addText(`${section.num}. ${section.title}`, 16, true); addText(section.title === "Executive Summary" ? [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n") : section.placeholder, 10); });
+
+    // Match the original generated-plan format: branded cover, then content pages.
+    pdf.setFillColor(15, 30, 60);
+    pdf.rect(0, 0, 612, 792, "F");
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(30);
+    pdf.text(plan.name, margin, 240);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(15);
+    if (cd.tagline) pdf.text(cd.tagline, margin, 270);
+    pdf.setFontSize(10);
+    pdf.text("BUSINESS PLAN", margin, 650);
+    pdf.text(`Prepared · ${new Date(plan.updatedAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}`, margin, 670);
+
+    pdf.addPage();
+    y = 60;
+    pdf.setTextColor(15, 30, 60);
+    const executiveText = [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n");
+    addText("Executive Summary", 20, true);
+    if (executiveText) addText(executiveText, 11);
+    exportSections.filter((section) => section.title !== "Executive Summary").forEach((section) => {
+      addText(section.title, 16, true);
+      if (section.content) addText(section.title === "Company Description" ? [cd.businessName, cd.businessActivity, cd.businessPurpose, cd.problemOrNeed, cd.mission, cd.vision, cd.objectives].filter(Boolean).join("\\n\\n") : section.placeholder, 10);
+    });
+
+    const pages = pdf.getNumberOfPages();
+    for (let page = 2; page <= pages; page++) {
+      pdf.setPage(page);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(120, 120, 120);
+      pdf.text(`${plan.name} · Business plan · ${page}`, margin, 760);
+    }
     pdf.save(`${fileBase}.pdf`);
   };
 
