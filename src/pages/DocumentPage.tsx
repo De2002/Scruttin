@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPlan } from "@/lib/storage";
+import { downloadBlob } from "@/lib/sampleBusinessPlan";
 import { BusinessPlan } from "@/types/businessPlan";
 
 export default function DocumentPage() {
@@ -94,8 +95,34 @@ export default function DocumentPage() {
 
   const completedSections = sections.filter((s) => s.content).length;
 
+  const exportSections = sections.filter((section) => section.content);
+  const fileBase = plan.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "business-plan";
+
+  const exportAsPdf = async () => {
+    const { jsPDF } = await import("jspdf");
+    const pdf = new jsPDF({ unit: "pt", format: "letter" });
+    let y = 60;
+    const addText = (text: string, size = 10, bold = false) => {
+      pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(size);
+      const lines = pdf.splitTextToSize(text, 504); const height = lines.length * (size + 5);
+      if (y + height > 730) { pdf.addPage(); y = 58; }
+      pdf.text(lines, 54, y); y += height + 10;
+    };
+    pdf.setTextColor(15, 30, 60); addText(plan.name, 24, true); addText("Business Plan", 12);
+    exportSections.forEach((section) => { addText(`${section.num}. ${section.title}`, 16, true); addText(section.title === "Executive Summary" ? [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n") : section.placeholder, 10); });
+    pdf.save(`${fileBase}.pdf`);
+  };
+
+  const exportAsDocx = async () => {
+    const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
+    const children = [new Paragraph({ text: plan.name, heading: HeadingLevel.TITLE }), new Paragraph("Business Plan")];
+    exportSections.forEach((section) => { children.push(new Paragraph({ text: `${section.num}. ${section.title}`, heading: HeadingLevel.HEADING_1 }), new Paragraph(section.title === "Executive Summary" ? [es.businessOverview, es.problemStatement, es.opportunityStatement, es.solutionSummary, es.marketOpportunity, es.financialHighlights].filter(Boolean).join("\\n\\n") : section.placeholder)); });
+    downloadBlob(await Packer.toBlob(new Document({ sections: [{ children }] })), `${fileBase}.docx`);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background print:bg-white">
+      <style>{`@media print { header, main > div:first-child, main > div:last-child { display: none !important; } main { max-width: none !important; padding: 0 !important; } main > div:nth-child(2) { display: block !important; } }`}</style>
       <header className="bg-navy-900 border-b border-navy-700 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -173,13 +200,13 @@ export default function DocumentPage() {
             </p>
             <div className="flex gap-4 justify-center">
               <button
-                onClick={() => alert("PDF export will be available when plan is complete.")}
+                onClick={exportAsPdf}
                 className="bg-navy-900 text-white px-7 py-3 rounded-lg font-semibold text-sm hover:bg-navy-800 transition-colors"
               >
                 Export as PDF
               </button>
               <button
-                onClick={() => alert("DOCX export will be available when plan is complete.")}
+                onClick={exportAsDocx}
                 className="border border-border text-navy-700 px-7 py-3 rounded-lg font-semibold text-sm hover:bg-muted transition-colors"
               >
                 Export as DOCX
