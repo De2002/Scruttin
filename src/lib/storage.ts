@@ -1,8 +1,63 @@
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { BusinessPlan, ResearchItem, Note } from "@/types/businessPlan";
+
+const LOCAL_PLANS_KEY = "scruttin_plans";
+const LOCAL_RESEARCH_KEY = "scruttin_research";
+const LOCAL_NOTES_KEY = "scruttin_notes";
 
 export function generateId(): string {
   return crypto.randomUUID();
+}
+
+function getLocalPlans(): BusinessPlan[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_PLANS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPlans(plans: BusinessPlan[]): void {
+  try {
+    localStorage.setItem(LOCAL_PLANS_KEY, JSON.stringify(plans));
+  } catch {
+    // ignore
+  }
+}
+
+function getLocalResearch(): ResearchItem[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_RESEARCH_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalResearch(items: ResearchItem[]): void {
+  try {
+    localStorage.setItem(LOCAL_RESEARCH_KEY, JSON.stringify(items));
+  } catch {
+    // ignore
+  }
+}
+
+function getLocalNotes(): Note[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_NOTES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalNotes(notes: Note[]): void {
+  try {
+    localStorage.setItem(LOCAL_NOTES_KEY, JSON.stringify(notes));
+  } catch {
+    // ignore
+  }
 }
 
 // ─── Map DB row → BusinessPlan ──────────────────────────────────────────────
@@ -42,109 +97,144 @@ function rowToPlan(row: Record<string, unknown>): BusinessPlan {
 
 // ─── Plans ───────────────────────────────────────────────────────────────────
 export async function getPlansForUser(userId: string): Promise<BusinessPlan[]> {
-  const { data, error } = await supabase
-    .from("business_plans")
-    .select("*")
-    .eq("user_id", userId)
-    .order("last_worked_on", { ascending: false });
+  const localPlans = getLocalPlans().filter((p) => p.userId === userId || !userId);
 
-  if (error) {
-    console.error("getPlansForUser error:", error);
-    return [];
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("business_plans")
+        .select("*")
+        .eq("user_id", userId)
+        .order("last_worked_on", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const remotePlans = data.map(rowToPlan);
+        saveLocalPlans(remotePlans);
+        return remotePlans;
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote plans, using local storage:", e);
+    }
   }
-  return (data || []).map(rowToPlan);
+
+  return localPlans;
 }
 
 export async function getPlan(id: string): Promise<BusinessPlan | null> {
-  const { data: planRow, error: planError } = await supabase
-    .from("business_plans")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  const localPlans = getLocalPlans();
+  const localPlan = localPlans.find((p) => p.id === id) || null;
 
-  if (planError || !planRow) {
-    console.error("getPlan error:", planError);
-    return null;
+  if (isSupabaseConfigured) {
+    try {
+      const { data: planRow, error: planError } = await supabase
+        .from("business_plans")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!planError && planRow) {
+        const plan = rowToPlan(planRow as Record<string, unknown>);
+
+        // Load research items
+        const { data: research } = await supabase
+          .from("research_items")
+          .select("*")
+          .eq("plan_id", id)
+          .order("created_at", { ascending: true });
+
+        // Load notes
+        const { data: notes } = await supabase
+          .from("notes")
+          .select("*")
+          .eq("plan_id", id)
+          .order("created_at", { ascending: false });
+
+        plan.researchItems = (research || []).map((r) => ({
+          id: r.id,
+          planId: r.plan_id,
+          phase: r.phase,
+          topic: r.topic,
+          question: r.question,
+          status: r.status,
+          currentAnswer: r.current_answer,
+          notes: r.notes,
+          evidence: r.evidence,
+          sources: r.sources || [],
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        }));
+
+        plan.notes = (notes || []).map((n) => ({
+          id: n.id,
+          planId: n.plan_id,
+          phase: n.phase,
+          topic: n.topic,
+          content: n.content,
+          createdAt: n.created_at,
+          updatedAt: n.updated_at,
+        }));
+
+        return plan;
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote plan, using local storage:", e);
+    }
   }
 
-  const plan = rowToPlan(planRow as Record<string, unknown>);
+  if (localPlan) {
+    localPlan.researchItems = getLocalResearch().filter((r) => r.planId === id);
+    localPlan.notes = getLocalNotes().filter((n) => n.planId === id);
+  }
 
-  // Load research items
-  const { data: research } = await supabase
-    .from("research_items")
-    .select("*")
-    .eq("plan_id", id)
-    .order("created_at", { ascending: true });
-
-  // Load notes
-  const { data: notes } = await supabase
-    .from("notes")
-    .select("*")
-    .eq("plan_id", id)
-    .order("created_at", { ascending: false });
-
-  plan.researchItems = (research || []).map((r) => ({
-    id: r.id,
-    planId: r.plan_id,
-    phase: r.phase,
-    topic: r.topic,
-    question: r.question,
-    status: r.status,
-    currentAnswer: r.current_answer,
-    notes: r.notes,
-    evidence: r.evidence,
-    sources: r.sources || [],
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-  }));
-
-  plan.notes = (notes || []).map((n) => ({
-    id: n.id,
-    planId: n.plan_id,
-    phase: n.phase,
-    topic: n.topic,
-    content: n.content,
-    createdAt: n.created_at,
-    updatedAt: n.updated_at,
-  }));
-
-  return plan;
+  return localPlan;
 }
 
 export async function savePlan(plan: BusinessPlan): Promise<void> {
-  const payload = {
-    id: plan.id,
-    user_id: plan.userId,
-    name: plan.name,
-    last_worked_on: new Date().toISOString(),
-    onboarding_completed: plan.onboardingCompleted,
-    current_phase: plan.currentPhase,
-    current_topic: plan.currentTopic,
-    overall_progress: plan.overallProgress,
-    phase_progress: plan.phaseProgress,
-    topic_status: plan.topicStatus,
-    company_description: plan.companyDescription || {},
-    market_analysis: plan.marketAnalysis || {},
-    organization: (plan as any).organization || {},
-    operations: (plan as any).operations || {},
-    products_services: (plan as any).productsServices || {},
-    marketing_sales: (plan as any).marketingSales || {},
-    products: plan.products || [],
-    team: plan.team || [],
-    financial_plan: plan.financialPlan || {},
-    funding_request: (plan as any).fundingRequest || {},
-    risks: plan.risks || [],
-    milestones: plan.milestones || [],
-    executive_summary: (plan as any).executiveSummary || {},
-    appendix: (plan as any).appendix || null,
-    ai_suggestions_accepted: plan.aiSuggestionsAccepted || [],
-  };
+  // Update local storage
+  const localPlans = getLocalPlans();
+  const index = localPlans.findIndex((p) => p.id === plan.id);
+  if (index >= 0) {
+    localPlans[index] = plan;
+  } else {
+    localPlans.unshift(plan);
+  }
+  saveLocalPlans(localPlans);
 
-  const { error } = await supabase
-    .from("business_plans")
-    .upsert(payload, { onConflict: "id" });
+  if (isSupabaseConfigured) {
+    try {
+      const payload = {
+        id: plan.id,
+        user_id: plan.userId,
+        name: plan.name,
+        last_worked_on: new Date().toISOString(),
+        onboarding_completed: plan.onboardingCompleted,
+        current_phase: plan.currentPhase,
+        current_topic: plan.currentTopic,
+        overall_progress: plan.overallProgress,
+        phase_progress: plan.phaseProgress,
+        topic_status: plan.topicStatus,
+        company_description: plan.companyDescription || {},
+        market_analysis: plan.marketAnalysis || {},
+        organization: plan.organization || {},
+        operations: plan.operations || {},
+        products_services: plan.productsServices || {},
+        marketing_sales: plan.marketingSales || {},
+        products: plan.products || [],
+        team: plan.team || [],
+        financial_plan: plan.financialPlan || {},
+        funding_request: plan.fundingRequest || {},
+        risks: plan.risks || [],
+        milestones: plan.milestones || [],
+        executive_summary: plan.executiveSummary || {},
+        appendix: plan.appendix || null,
+        ai_suggestions_accepted: plan.aiSuggestionsAccepted || [],
+      };
 
-  if (error) console.error("savePlan error:", error);
+      await supabase.from("business_plans").upsert(payload, { onConflict: "id" });
+    } catch (error) {
+      console.warn("savePlan remote error:", error);
+    }
+  }
 }
 
 export async function createNewPlan(
@@ -184,53 +274,105 @@ export async function createNewPlan(
 }
 
 export async function deletePlan(id: string): Promise<void> {
-  const { error } = await supabase.from("business_plans").delete().eq("id", id);
-  if (error) console.error("deletePlan error:", error);
+  const localPlans = getLocalPlans().filter((p) => p.id !== id);
+  saveLocalPlans(localPlans);
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("business_plans").delete().eq("id", id);
+    } catch (error) {
+      console.warn("deletePlan remote error:", error);
+    }
+  }
 }
 
 // ─── Research Items ──────────────────────────────────────────────────────────
 export async function saveResearchItem(item: ResearchItem): Promise<void> {
-  const { error } = await supabase.from("research_items").upsert(
-    {
-      id: item.id,
-      plan_id: item.planId,
-      user_id: (await supabase.auth.getUser()).data.user?.id,
-      phase: item.phase,
-      topic: item.topic,
-      question: item.question,
-      status: item.status,
-      current_answer: item.currentAnswer,
-      notes: item.notes,
-      evidence: item.evidence,
-      sources: item.sources || [],
-    },
-    { onConflict: "id" }
-  );
-  if (error) console.error("saveResearchItem error:", error);
+  const items = getLocalResearch();
+  const idx = items.findIndex((r) => r.id === item.id);
+  if (idx >= 0) {
+    items[idx] = item;
+  } else {
+    items.push(item);
+  }
+  saveLocalResearch(items);
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("research_items").upsert(
+        {
+          id: item.id,
+          plan_id: item.planId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          phase: item.phase,
+          topic: item.topic,
+          question: item.question,
+          status: item.status,
+          current_answer: item.currentAnswer,
+          notes: item.notes,
+          evidence: item.evidence,
+          sources: item.sources || [],
+        },
+        { onConflict: "id" }
+      );
+    } catch (error) {
+      console.warn("saveResearchItem remote error:", error);
+    }
+  }
 }
 
 export async function deleteResearchItem(id: string): Promise<void> {
-  const { error } = await supabase.from("research_items").delete().eq("id", id);
-  if (error) console.error("deleteResearchItem error:", error);
+  const items = getLocalResearch().filter((r) => r.id !== id);
+  saveLocalResearch(items);
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("research_items").delete().eq("id", id);
+    } catch (error) {
+      console.warn("deleteResearchItem remote error:", error);
+    }
+  }
 }
 
 // ─── Notes ───────────────────────────────────────────────────────────────────
 export async function saveNote(note: Note): Promise<void> {
-  const { error } = await supabase.from("notes").upsert(
-    {
-      id: note.id,
-      plan_id: note.planId,
-      user_id: (await supabase.auth.getUser()).data.user?.id,
-      phase: note.phase,
-      topic: note.topic,
-      content: note.content,
-    },
-    { onConflict: "id" }
-  );
-  if (error) console.error("saveNote error:", error);
+  const notes = getLocalNotes();
+  const idx = notes.findIndex((n) => n.id === note.id);
+  if (idx >= 0) {
+    notes[idx] = note;
+  } else {
+    notes.unshift(note);
+  }
+  saveLocalNotes(notes);
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("notes").upsert(
+        {
+          id: note.id,
+          plan_id: note.planId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          phase: note.phase,
+          topic: note.topic,
+          content: note.content,
+        },
+        { onConflict: "id" }
+      );
+    } catch (error) {
+      console.warn("saveNote remote error:", error);
+    }
+  }
 }
 
 export async function deleteNote(id: string): Promise<void> {
-  const { error } = await supabase.from("notes").delete().eq("id", id);
-  if (error) console.error("deleteNote error:", error);
+  const notes = getLocalNotes().filter((n) => n.id !== id);
+  saveLocalNotes(notes);
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("notes").delete().eq("id", id);
+    } catch (error) {
+      console.warn("deleteNote remote error:", error);
+    }
+  }
 }

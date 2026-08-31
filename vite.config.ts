@@ -5,9 +5,8 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
-    host: "::",
-    port: 8080,
-    allowedHosts: true,
+    host: "0.0.0.0",
+    port: 3000,
   },
   plugins: [
     react(),

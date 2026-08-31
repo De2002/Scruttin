@@ -138,6 +138,8 @@ export interface Product {
 export interface CompanyDescription {
   businessName?: string;
   tagline?: string;
+  logoUrl?: string;
+  fontTheme?: "modern" | "classic" | "technical" | "minimal";
   businessActivity?: string;
   businessPurpose?: string;
   problemOrNeed?: string;

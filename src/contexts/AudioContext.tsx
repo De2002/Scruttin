@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 // Hardcoded background audio URL from Backblaze B2
 const BACKGROUND_AUDIO_URL =
@@ -34,7 +34,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
   });
-  const [lastError, setLastError] = useState<string | null>(null);
+  const [, setLastError] = useState<string | null>(null);
   const [volume, setVolumeState] = useState<number>(() => {
     try {
       return parseFloat(localStorage.getItem("scruttin_audio_volume") || "0.4");
@@ -56,25 +56,19 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const playAudio = useCallback(async () => {
     setLastError(null);
-    const { data, error } = await supabase.functions.invoke("r2-audio");
-    if (error) {
-      let detail = error.message;
+    let audioUrl = BACKGROUND_AUDIO_URL;
+    if (isSupabaseConfigured) {
       try {
-        const body = await error.context?.json();
-        detail = body?.error || body?.message || detail;
-      } catch {
-        // Keep the function error message when the response is not JSON.
+        const { data, error } = await supabase.functions.invoke("r2-audio");
+        if (!error && data?.url) {
+          audioUrl = data.url;
+        }
+      } catch (err) {
+        console.warn("Supabase r2-audio invocation failed, using direct url:", err);
       }
-      setLastError(detail);
-      throw new Error(detail);
-    }
-    if (!data?.url) {
-      const detail = "B2 did not return an authorized audio URL. Verify the bucket name, file name, and shareFiles capability.";
-      setLastError(detail);
-      throw new Error(detail);
     }
     const audio = getAudio();
-    audio.src = data.url;
+    audio.src = audioUrl;
     audio.volume = volume;
     return audio.play();
   }, [getAudio, volume]);

@@ -1,0 +1,6 @@
+{
+  "name": "Scruttin — Business Plan Builder",
+  "description": "Guided, step-by-step business plan builder with research tracking, financial calculators, audio guides, and document generation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
